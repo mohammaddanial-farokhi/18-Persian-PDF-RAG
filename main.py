@@ -1,6 +1,7 @@
 from transformers import AutoTokenizer, pipeline
 import torch
 from unsloth import FastLanguageModel
+from langchain_huggingface import HuggingFaceEmbeddings
 
 
 def load_model_and_tokenizer(model_name: str, max_seq_length: int = 2048):
@@ -27,7 +28,19 @@ def load_model_and_tokenizer(model_name: str, max_seq_length: int = 2048):
     return model, tokenizer
 
 
+def load_embed_model(model_name):
+    model = HuggingFaceEmbeddings(
+        model_name=model_name,
+        model_kwargs={"device": "cuda"},
+        encode_kwargs={"normalize_embeddings": True},
+    )
+    print(f"✅ {model_name} loaded successfully")
+    return model
+
+
 if __name__ == "__main__":
     MODEL_NAME = "unsloth/gemma-3-4b-it-unsloth-bnb-4bit"
+    EMBEDDING_MODEL_NAME = "PartAI/Tooka-SBERT-V2-Large"
 
     base_model, base_tokenizer = load_model_and_tokenizer(MODEL_NAME)
+    embed_model = load_embed_model(EMBEDDING_MODEL_NAME)
