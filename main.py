@@ -122,6 +122,27 @@ Answer:
     return formatted_prompt
 
 
+from langchain_community.document_loaders import PyPDFLoader
+from typing import List
+from langchain_core.documents import Document
+
+
+def load_pdf(file_path):
+    print(f"⏳ Loading PDF: {file_path}")
+
+    try:
+        loader = PyPDFLoader(file_path)
+        pages = loader.load_and_split()
+
+        print(f"✅ Successfully loaded {len(pages)} pages from the PDF.")
+        return pages
+    except Exception as e:
+        print(f"❌ Error loading PDF: {e}")
+        return []
+
+
+# نحوه استفاده:
+
 if __name__ == "__main__":
     MODEL_NAME = "unsloth/gemma-3-4b-it-unsloth-bnb-4bit"
     EMBEDDING_MODEL_NAME = "PartAI/Tooka-SBERT-V2-Large"
@@ -144,8 +165,11 @@ if __name__ == "__main__":
     # 1. Build the prompt
     final_prompt = build_rag_prompt(context=sample_context, question=sample_question)
 
-    print("--- Generated Prompt ---")
-    print(final_prompt)
-    print("------------------------")
-    answer = generate_response(final_prompt, langchain_framework, base_tokenizer)
-    print(answer)
+    # print("--- Generated Prompt ---")
+    # print(final_prompt)
+    # print("------------------------")
+    # answer = generate_response(final_prompt, langchain_framework, base_tokenizer)
+    # print(answer)
+
+    documents = load_pdf("test_sample.pdf")
+    print(documents[0].page_content)
