@@ -6,6 +6,10 @@ from unsloth import FastLanguageModel
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_huggingface.llms import HuggingFacePipeline
 from langchain_core.prompts import PromptTemplate
+from langchain_community.document_loaders import PyPDFLoader
+from typing import List, Optional
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Silence specific transformers warnings that use the logging module
 logging.getLogger("transformers.generation.utils").setLevel(logging.ERROR)
@@ -122,11 +126,6 @@ Answer:
     return formatted_prompt
 
 
-from langchain_community.document_loaders import PyPDFLoader
-from typing import List
-from langchain_core.documents import Document
-
-
 def load_pdf(file_path):
     print(f"⏳ Loading PDF: {file_path}")
 
@@ -141,7 +140,32 @@ def load_pdf(file_path):
         return []
 
 
-# نحوه استفاده:
+def split_documents_into_chunks(documents, chunk_size=1024, chunk_overlap=256, limit=None):
+    print(f"⏳ Splitting documents (chunk_size={chunk_size}, overlap={chunk_overlap})...")
+
+    # Note: Using langchain_text_splitters instead of langchain.text_splitter to avoid deprecation warnings
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        length_function=len,
+    )
+
+    chunks = text_splitter.split_documents(documents)
+
+    # If a limit is provided (like [:5] in the image), apply it
+    if limit is not None:
+        chunks = chunks[:limit]
+
+    print(f"✅ Successfully split into {len(chunks)} chunks.")
+
+    # Print the first chunk as a sample to verify
+    if chunks:
+        print("\n--- Sample Chunk ---")
+        print(chunks[0].page_content[:200] + "...")  # Print first 200 chars
+        print("--------------------\n")
+
+    return chunks
+
 
 if __name__ == "__main__":
     MODEL_NAME = "unsloth/gemma-3-4b-it-unsloth-bnb-4bit"
@@ -172,4 +196,6 @@ if __name__ == "__main__":
     # print(answer)
 
     documents = load_pdf("test_sample.pdf")
-    print(documents[0].page_content)
+    # print(documents[0].page_content)
+
+    chunks = split_documents_into_chunks(documents)
