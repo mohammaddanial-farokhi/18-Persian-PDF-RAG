@@ -10,6 +10,8 @@ from langchain_community.document_loaders import PyPDFLoader
 from typing import List, Optional
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import DocArrayInMemorySearch
+from langchain_core.embeddings import Embeddings
 
 # Silence specific transformers warnings that use the logging module
 logging.getLogger("transformers.generation.utils").setLevel(logging.ERROR)
@@ -167,6 +169,23 @@ def split_documents_into_chunks(documents, chunk_size=1024, chunk_overlap=256, l
     return chunks
 
 
+def create_vector_store(documents, embedding_model):
+    print(f"⏳ Creating in-memory vector store for {len(documents)} chunks...")
+
+    try:
+        # Create the vector store by embedding all document chunks
+        vectorstore = DocArrayInMemorySearch.from_documents(
+            documents, embedding=embedding_model
+        )
+
+        print("✅ Vector store created successfully and is ready for retrieval!")
+        return vectorstore
+
+    except Exception as e:
+        print(f"❌ Error creating vector store: {e}")
+        return None
+
+
 if __name__ == "__main__":
     MODEL_NAME = "unsloth/gemma-3-4b-it-unsloth-bnb-4bit"
     EMBEDDING_MODEL_NAME = "PartAI/Tooka-SBERT-V2-Large"
@@ -199,3 +218,5 @@ if __name__ == "__main__":
     # print(documents[0].page_content)
 
     chunks = split_documents_into_chunks(documents)
+
+    vectorstore = create_vector_store(chunks, embedding_model=embed_model)
