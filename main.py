@@ -187,10 +187,6 @@ def create_vector_store(documents, embedding_model):
         return None
 
 
-from typing import List
-from langchain_core.documents import Document
-
-
 def test_retrieval(query, vectorstore, k=2):
     print(f"\n🔍 Testing Retrieval for query: '{query}'")
 
@@ -213,6 +209,35 @@ def test_retrieval(query, vectorstore, k=2):
         print(f"--- Chunk {i} (Page: {page_num}) ---")
         print(doc.page_content.strip())
         print("-" * 50)
+
+    return results
+
+
+def ask_multiple_questions(questions, retriever, llm, tokenizer):
+    results = []
+
+    for question in questions:
+        print(f"\n❓ Question: {question}")
+
+        # 1. Retrieve relevant chunks from the vector store
+        retrieved_docs = retriever.invoke(question)
+
+        # 2. Combine the retrieved chunks into a single context string
+        context = "\n\n".join([doc.page_content for doc in retrieved_docs])
+
+        # 3. Build the final prompt using our existing function
+        final_prompt = build_rag_prompt(context=context, question=question)
+
+        # 4. Generate the answer using the LLM
+        print("🧠 Thinking...")
+        answer = generate_response(final_prompt, llm, tokenizer)
+
+        # 5. Print the result
+        print(f"🤖 Answer: {answer}")
+        print("-" * 60)
+
+        # 6. Save the result to the list
+        results.append({"question": question, "answer": answer})
 
     return results
 
@@ -252,9 +277,22 @@ if __name__ == "__main__":
 
     vectorstore = create_vector_store(chunks, embedding_model=embed_model)
 
-    test_results = test_retrieval(
-        query="اندازه‌ی پیش فرض Tab چند سانتی متر می باشد؟",
-        vectorstore=vectorstore,
-        k=2,
+    # test_results = test_retrieval(
+    #     query="اندازه‌ی پیش فرض Tab چند سانتی متر می باشد؟",
+    #     vectorstore=vectorstore,
+    #     k=2,
+    # )
+    # print(test_results)
+
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+    my_questions = [
+        "اندازه‌ی پیش فرض Tab چند سانتی متر می باشد؟",
+        "پسوند فایل های الگو در نرم افزار Word 2019 چیست؟",
+    ]
+    answers = ask_multiple_questions(
+        questions=my_questions,
+        retriever=retriever,
+        llm=langchain_framework,
+        tokenizer=base_tokenizer,
     )
-    print(test_results)
+    print(answers)
