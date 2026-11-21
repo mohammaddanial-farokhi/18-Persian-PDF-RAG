@@ -3,7 +3,7 @@
 # ==============================================================================
 import warnings
 import logging
-from typing import List, Optional, Dict
+from typing import List, Dict
 
 import torch
 import unsloth
@@ -23,7 +23,6 @@ from langchain_community.vectorstores import DocArrayInMemorySearch
 # ==============================================================================
 # CONFIGURATION & WARNINGS SUPPRESSION
 # ==============================================================================
-# Silence specific transformers warnings that use the logging module
 logging.getLogger("transformers.generation.utils").setLevel(logging.ERROR)
 logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
@@ -112,7 +111,9 @@ def load_pdf(file_path: str) -> List[Document]:
 
 
 def split_documents_into_chunks(
-    documents: List[Document], chunk_size: int = 1024, chunk_overlap: int = 256
+    documents: List[Document],
+    chunk_size: int = 600,  # 👈 تغییر مهم: کاهش سایز چانک
+    chunk_overlap: int = 100,  # 👈 تغییر مهم: کاهش همپوشانی
 ) -> List[Document]:
     """Splits documents into smaller text chunks for embedding."""
     print(f"⏳ Splitting documents (chunk_size={chunk_size}, overlap={chunk_overlap})...")
@@ -146,11 +147,25 @@ def create_vector_store(documents: List[Document], embedding_model: Embeddings):
 def build_rag_prompt(context: str, question: str) -> str:
     """Creates and formats a RAG prompt using the provided context and question."""
     template = """
-    You are a helpful and knowledgeable AI assistant. Use only the information retrieved from the documents to answer the user's question in Persian (Farsi). 
-    If the answer is not found in the retrieved context, respond with: "متاسفانه اطلاعاتی در این مورد ندارم." 
-    Do not use your own knowledge beyond the provided context. Be accurate, clear, and polite. 
-    Never mention the documents or the retrieval process in your response. Just respond naturally in Persian.
-    
+    You are a friendly, polite, and highly conversational Persian AI assistant.
+    Your goal is to answer the user's question based ONLY on the provided Context, just like a human tutor explaining a concept.
+
+    IMPORTANT INSTRUCTIONS:
+    1. Read the Context carefully (it might contain mixed English/Persian text).
+    2. Start your answer with a natural transition (e.g., "بر اساس اطلاعات موجود در سند شما، ...").
+    3. Highlight the core answer using bold text (e.g., **Shift Cells Right**).
+    4. DO NOT just output a single word or a short robotic phrase. Write a full, helpful paragraph.
+
+    CRITICAL RULE: 
+    NEVER end your answer with generic closing phrases like "امیدوارم این توضیح مفید بوده باشد", "امیدوارم کمک کرده باشم", or "اگر سوال دیگری دارید بپرسید". End your response immediately after the explanation. Just stop!
+
+    ---
+    EXAMPLE OF A GOOD RESPONSE (Notice there is no closing phrase):
+    Context: "برای انتقال خانه‌ها به راست از Shift Cells Right استفاده کنید. این گزینه خانه‌های سمت راست را جابه‌جا می‌کند."
+    Question: "کدام گزینه خانه‌ها را به راست می‌برد؟"
+    Answer: "بر اساس اطلاعات موجود در سند شما، گزینه صحیح **Shift Cells Right** است. این گزینه به طور خاص خانه‌های جدول را به سمت راست جابه‌جا می‌کند."
+    ---
+
     Context:
     {context}
 
@@ -159,8 +174,7 @@ def build_rag_prompt(context: str, question: str) -> str:
 
     Answer:
     """
-    prompt = PromptTemplate.from_template(template)
-    return prompt.format(context=context, question=question)
+    return PromptTemplate.from_template(template).format(context=context, question=question)
 
 
 def generate_response(prompt: str, llm, tokenizer) -> str:
@@ -181,6 +195,13 @@ def ask_multiple_questions(
     for question in questions:
         print(f"\n❓ Question: {question}")
         retrieved_docs = retriever.invoke(question)
+
+        # چاپ چانک‌های پیدا شده برای دیباگ (ببینیم چه چیزی به مدل می‌رود)
+        print("--- Retrieved Context ---")
+        for doc in retrieved_docs:
+            print(doc.page_content.strip()[:200] + "...")
+        print("-------------------------")
+
         context = "\n\n".join([doc.page_content for doc in retrieved_docs])
         final_prompt = build_rag_prompt(context=context, question=question)
 
@@ -219,11 +240,12 @@ if __name__ == "__main__":
 
     # --- Step 3: Ask Questions ---
     if vectorstore:
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+        # 👈 تغییر مهم: افزایش k به 3 برای پیدا کردن متن دقیق‌تر
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
         my_questions = [
-            "اندازه‌ی پیش فرض Tab چند سانتی متر می باشد؟",
-            "پسوند فایل های الگو در نرم افزار Word 2019 چیست؟",
+            "کدام گزینه سبب حذف خانه ی جاری شده و باقی خانه ها را به سمت راست حرکت می دهد؟",
+            "برنامه واژه پرداز چیست ؟",
         ]
 
         answers = ask_multiple_questions(
