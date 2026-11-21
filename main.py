@@ -1,3 +1,4 @@
+import unsloth
 from transformers import AutoTokenizer, pipeline
 import torch
 import logging
@@ -186,6 +187,36 @@ def create_vector_store(documents, embedding_model):
         return None
 
 
+from typing import List
+from langchain_core.documents import Document
+
+
+def test_retrieval(query, vectorstore, k=2):
+    print(f"\n🔍 Testing Retrieval for query: '{query}'")
+
+    # Create a retriever interface from the vector store
+    # search_kwargs={"k": k} limits the results to the top 'k' matches
+    retriever = vectorstore.as_retriever(search_kwargs={"k": k})
+
+    # Invoke the retriever (Modern LangChain syntax)
+    results = retriever.invoke(query)
+
+    print(f"✅ Found {len(results)} relevant chunks:\n")
+
+    # Print each chunk for inspection
+    for i, doc in enumerate(results, 1):
+        # Extract page number from metadata if it exists
+        page_num = doc.metadata.get("page", "Unknown")
+        if isinstance(page_num, int):
+            page_num += 1  # PyMuPDF pages are 0-indexed, so +1 makes it human-readable
+
+        print(f"--- Chunk {i} (Page: {page_num}) ---")
+        print(doc.page_content.strip())
+        print("-" * 50)
+
+    return results
+
+
 if __name__ == "__main__":
     MODEL_NAME = "unsloth/gemma-3-4b-it-unsloth-bnb-4bit"
     EMBEDDING_MODEL_NAME = "PartAI/Tooka-SBERT-V2-Large"
@@ -220,3 +251,10 @@ if __name__ == "__main__":
     chunks = split_documents_into_chunks(documents)
 
     vectorstore = create_vector_store(chunks, embedding_model=embed_model)
+
+    test_results = test_retrieval(
+        query="اندازه‌ی پیش فرض Tab چند سانتی متر می باشد؟",
+        vectorstore=vectorstore,
+        k=2,
+    )
+    print(test_results)
